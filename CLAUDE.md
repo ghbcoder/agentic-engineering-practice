@@ -42,3 +42,7 @@ The DDL lives in two places: `db/seed.js` (for the real database) and `tests/sch
 ## Test conventions
 
 Each test file sets `process.env.NODE_ENV = 'test'` **before** it requires `../index`, so that `DB.js` opens `:memory:`. It then calls `createSchema(db)` in `beforeAll` and runs `DELETE FROM` on every table in `beforeEach`, removing child tables first (`task_tags`, `comments`, `tasks`, `projects`, `users`, `tags`) so the foreign keys aren't violated. Follow the same pattern in new test files.
+
+## Git
+
+Commit messages use the conventional commit format (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`). `/commit-push` commits only what is already staged; it doesn't run `git add`.
