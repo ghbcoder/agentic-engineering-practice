@@ -1,5 +1,5 @@
 // TODO: replace with real JWT validation
-const { API_KEY } = require('./src/config');
+const { API_KEY } = require('../config');
 
 function authenticate(req, res, next) {
   const apiKey = req.headers['x-api-key'];

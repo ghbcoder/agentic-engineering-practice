@@ -13,11 +13,11 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('./src/db/connection');
-const { authenticate } = require('./auth');
+const { authenticate } = require('./src/middleware/auth');
 const UserController = require('./UserController');
 const { getTasks, getTaskById } = require('./get-tasks');
 const { getProjectStats } = require('./projectHelpers');
-const { isNonEmptyString } = require('./utils');
+const { isNonEmptyString } = require('./src/utils/validation');
 const { VALID_TASK_STATUSES, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } = require('./src/utils/constants');
 
 // ─── Health ──────────────────────────────────────────────────────────────────
