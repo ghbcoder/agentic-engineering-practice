@@ -1,3 +1,5 @@
 node_modules/
-taskr.db
-taskr.db-*
+
+# SQLite databases (taskr.db by default, or any DB_PATH) and their WAL/journal files
+*.db
+*.db-*
