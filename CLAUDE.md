@@ -25,7 +25,8 @@ Until that refactor happens:
 
 ## Don't
 
-- **Never add new route logic to `routes.js`.** It is already too large. New routes go in a dedicated route file, which `index.js` then mounts.- **Never add a new utility function to `utils.js` without first checking whether it belongs in a more specific module.**
+- **Never add new route logic to `routes.js`.** It is already too large. New routes go in a dedicated route file, which `index.js` then mounts.
+- **Never add a new utility function to `utils.js` without first checking whether it belongs in a more specific module.**
 - **Never import from files in `misc/`.** That code is dead and will be removed. (`index.js` and `routes.js` still import `PORT` and `VALID_TASK_STATUSES` from `misc/constants.js`. Leave those imports as they are, but don't add new ones.)
 
 ## Commands
@@ -66,6 +67,7 @@ The DDL lives in two places: `db/seed.js` (for the real database) and `tests/sch
 ## Test conventions
 
 Each test file sets `process.env.NODE_ENV = 'test'` **before** it requires `../index`, so that `DB.js` opens `:memory:`. It then calls `createSchema(db)` in `beforeAll` and runs `DELETE FROM` on every table in `beforeEach`, removing child tables first (`task_tags`, `comments`, `tasks`, `projects`, `users`, `tags`) so the foreign keys aren't violated. Follow the same pattern in new test files.
+
 ## Git
 
 Commit messages use the conventional commit format (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`). `/commit-push` commits only what is already staged; it doesn't run `git add`.
