@@ -1,8 +1,7 @@
 const express = require('express');
-const { PORT } = require('./src/config');
-const router = require('./routes');
-const { requestLogger } = require('./src/middleware/request-logger');
-const { errorHandler } = require('./src/middleware/error-handler');
+const router = require('../routes');
+const { requestLogger } = require('./middleware/request-logger');
+const { errorHandler } = require('./middleware/error-handler');
 
 const app = express();
 
@@ -22,11 +21,5 @@ app.post('/webhooks/task-update', (req, res) => {
 
 app.use(router);
 app.use(errorHandler);
-
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Taskr API running on port ${PORT}`);
-  });
-}
 
 module.exports = app;
