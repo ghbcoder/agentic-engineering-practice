@@ -16,8 +16,9 @@ const { db } = require('./DB');
 const { authenticate } = require('./auth');
 const UserController = require('./UserController');
 const { getTasks, getTaskById } = require('./get-tasks');
-const { validateEmail, isNonEmptyString } = require('./utils');
-const { VALID_TASK_STATUSES } = require('./misc/constants');
+const { getProjectStats } = require('./projectHelpers');
+const { isNonEmptyString } = require('./utils');
+const { VALID_TASK_STATUSES, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } = require('./src/utils/constants');
 
 // ─── Health ──────────────────────────────────────────────────────────────────
 
@@ -107,8 +108,6 @@ router.get('/projects/:id', (req, res) => {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  // Lazy require to avoid circular dependency at module load time
-  const { getProjectStats } = require('./projectHelpers');
   const stats = getProjectStats(id);
   res.json({ ...project, stats });
 });
@@ -145,7 +144,7 @@ router.get('/tasks', (req, res) => {
     return res.status(400).json({ error: `status must be one of: ${VALID_TASK_STATUSES.join(', ')}` });
   }
 
-  const limit = Math.min(100, parseInt(page_size) || 20);
+  const limit = Math.min(MAX_PAGE_SIZE, parseInt(page_size) || DEFAULT_PAGE_SIZE);
   const offset = ((parseInt(page) || 1) - 1) * limit;
 
   const tasks = getTasks({
@@ -320,11 +319,4 @@ router.delete('/tasks/:id/tags/:tagId', (req, res) => {
   res.json({ deleted: true });
 });
 
-// ─── Helper exported for projectHelpers.js (creates circular dep risk) ────────
-
-function getTasksForProject(projectId) {
-  return db.prepare('SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC').all(projectId);
-}
-
 module.exports = router;
-module.exports.getTasksForProject = getTasksForProject;

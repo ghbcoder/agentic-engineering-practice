@@ -1,5 +1,5 @@
 const express = require('express');
-const { PORT } = require('./misc/constants');
+const { PORT } = require('./src/config');
 const router = require('./routes');
 const { requestLogger, errorHandler } = require('./middleware');
 

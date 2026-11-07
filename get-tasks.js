@@ -1,6 +1,7 @@
 const { db } = require('./DB');
+const { DEFAULT_PAGE_SIZE } = require('./src/utils/constants');
 
-function getTasks({ status, projectId, assigneeId, limit = 20, offset = 0 } = {}) {
+function getTasks({ status, projectId, assigneeId, limit = DEFAULT_PAGE_SIZE, offset = 0 } = {}) {
   let query = 'SELECT * FROM tasks';
   const conditions = [];
   const params = [];
