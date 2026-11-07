@@ -5,13 +5,13 @@ How to write tests for the Taskr API.
 ## File naming
 
 - Name each test file `<resource>.test.js`, in lowercase: `tasks.test.js`, `comments.test.js`, `tags.test.js`. Put it in `tests/`.
-- Jest only finds files that match `testMatch` in `package.json`. `tests/*.test.js` is one of those patterns, so this name is picked up with no config change.
-- Don't copy the older names (`userTest.js`, `test-projects.js`), and don't rename them unless the task asks for it.
+- Jest only finds files that match `testMatch` in `package.json`, which is `tests/*.test.js`. A file with any other name won't run.
+- Use the same resource name as the route file: `src/routes/task-tags.js` is tested by `tests/task-tags.test.js`.
 
 ## Tools and database
 
 - Use **Jest** as the test runner and **supertest** to send HTTP requests to the app. Don't start a server or call `listen`. Pass the app to `request(app)`.
-- Tests run against an **in-memory SQLite database**, so they don't need an external database, a seed step or a `taskr.db` file. Setting `NODE_ENV=test` makes `DB.js` open `:memory:`.
+- Tests run against an **in-memory SQLite database**, so they don't need an external database, a seed step or a `taskr.db` file. Setting `NODE_ENV=test` makes `src/db/connection.js` open `:memory:`.
 
 Every test file starts with this setup:
 
@@ -19,9 +19,9 @@ Every test file starts with this setup:
 process.env.NODE_ENV = 'test'; // must come before requiring the app
 
 const request = require('supertest');
-const app = require('../index');
-const { db } = require('../DB');
-const { createSchema } = require('./schema');
+const app = require('../src/app');
+const { db } = require('../src/db/connection');
+const { createSchema } = require('../src/db/schema');
 
 beforeAll(() => {
   createSchema(db);

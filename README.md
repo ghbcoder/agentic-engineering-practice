@@ -28,6 +28,28 @@ The server starts on port 3000. Visit `http://localhost:3000/health` to confirm 
 | Tasks | `/tasks` |
 | Comments | `/tasks/:id/comments` |
 | Tags | `/tags` |
+| Task tags | `/tasks/:id/tags` |
+
+`DELETE /users/:id` and `DELETE /projects/:id` require an `x-api-key` header (`API_KEY`, default `dev-key`).
+
+---
+
+## Project structure
+
+```
+src/
+  app.js        Express app and router mounting
+  server.js     entry point
+  config.js     PORT and API_KEY from the environment
+  routes/       one router per resource
+  services/     validation and business rules
+  db/           connection, schema, seed and SQL queries (db/queries/)
+  middleware/   auth, request logging, error handling
+  utils/        validators, constants, HttpError
+tests/          one <resource>.test.js per resource
+```
+
+Requests flow through **routes → services → queries**: routes handle HTTP, services hold the rules, and only `src/db/queries/` runs SQL.
 
 ---
 
