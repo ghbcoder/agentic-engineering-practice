@@ -23,28 +23,6 @@ router.get('/health', (req, res) => {
 
 // ─── Tags ─────────────────────────────────────────────────────────────────────
 
-router.get('/tags', (req, res) => {
-  const tags = db.prepare('SELECT * FROM tags ORDER BY name ASC').all();
-  res.json(tags);
-});
-
-router.post('/tags', (req, res) => {
-  const { name } = req.body;
-  if (!name || !isNonEmptyString(name)) {
-    return res.status(400).json({ error: 'name is required' });
-  }
-  try {
-    const result = db.prepare('INSERT INTO tags (name) VALUES (?)').run(name.toLowerCase().trim());
-    const tag = db.prepare('SELECT * FROM tags WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(tag);
-  } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
-      return res.status(409).json({ error: 'tag already exists' });
-    }
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.post('/tasks/:id/tags', (req, res) => {
   const taskId = parseInt(req.params.id);
   const { tag_id } = req.body;
