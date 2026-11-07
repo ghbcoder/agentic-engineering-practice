@@ -8,8 +8,8 @@
     "dev": "node --watch index.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "db:seed": "node db/seed.js",
-    "db:reset": "rm -f taskr.db && node db/seed.js"
+    "db:seed": "node src/db/seed.js",
+    "db:reset": "rm -f taskr.db && node src/db/seed.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",

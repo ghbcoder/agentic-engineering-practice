@@ -2,8 +2,8 @@ process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const app = require('../index');
-const { db } = require('../DB');
-const { createSchema } = require('./schema');
+const { db } = require('../src/db/connection');
+const { createSchema } = require('../src/db/schema');
 
 beforeAll(() => {
   createSchema(db);

@@ -1,4 +1,4 @@
-const { db } = require('./DB');
+const { db } = require('./src/db/connection');
 const { DEFAULT_PAGE_SIZE } = require('./src/utils/constants');
 
 function getTasks({ status, projectId, assigneeId, limit = DEFAULT_PAGE_SIZE, offset = 0 } = {}) {
