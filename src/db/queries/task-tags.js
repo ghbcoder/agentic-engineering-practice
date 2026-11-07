@@ -6,4 +6,13 @@ function findTagsByTaskId(taskId) {
   ).all(taskId);
 }
 
-module.exports = { findTagsByTaskId };
+function insertTaskTag(taskId, tagId) {
+  db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)').run(taskId, tagId);
+}
+
+// Returns the number of rows deleted (0 or 1)
+function deleteTaskTag(taskId, tagId) {
+  return db.prepare('DELETE FROM task_tags WHERE task_id = ? AND tag_id = ?').run(taskId, tagId).changes;
+}
+
+module.exports = { findTagsByTaskId, insertTaskTag, deleteTaskTag };
