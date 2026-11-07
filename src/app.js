@@ -3,6 +3,7 @@ const router = require('../routes');
 const { tasksRouter } = require('./routes/tasks');
 const { projectsRouter } = require('./routes/projects');
 const { usersRouter } = require('./routes/users');
+const { commentsRouter } = require('./routes/comments');
 const { requestLogger } = require('./middleware/request-logger');
 const { errorHandler } = require('./middleware/error-handler');
 
@@ -22,6 +23,7 @@ app.post('/webhooks/task-update', (req, res) => {
   res.json({ received: true });
 });
 
+app.use('/tasks/:id/comments', commentsRouter);
 app.use('/tasks', tasksRouter);
 app.use('/projects', projectsRouter);
 app.use('/users', usersRouter);
