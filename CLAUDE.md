@@ -11,23 +11,16 @@ Read the matching file before doing these tasks:
 
 ## Project
 
-Taskr API: a REST API for task management built with Node.js, Express 5, SQLite (`better-sqlite3`, synchronous) and Jest + supertest. It is a practice codebase for agentic engineering, so it has some messy structure on purpose: inconsistent layering, odd file names, dead files and TODOs. A future refactor will deal with these problems.
+Taskr API: a REST API for task management built with Node.js, Express 5, SQLite (`better-sqlite3`, synchronous) and Jest + supertest. All code lives in `src/`, split into layers: **routes → services → queries**.
 
-Until that refactor happens:
+## Rules
 
-- **Don't fix the structure unless the task asks for it.** Leave existing files, names and layering as they are.
-- **Don't spread the bad patterns either.** The Architecture section below describes how the code works now. That is the current state, not a style guide. In new or changed code:
-  - Don't add a new circular dependency or a lazy `require` to get around one.
-  - Don't add more dead code, duplicated helpers or duplicated schema.
-  - Don't create files with one-off naming styles.
-  - Reuse what already exists, such as the validators in `utils.js` and the errors with an `err.status` that `errorHandler` turns into HTTP responses.
-- **If a task can only be done by following a bad pattern** (for example, a schema change has to go in both DDL copies), follow it and say so in your summary. Don't quietly copy it.
-
-## Don't
-
-- **Never add new route logic to `routes.js`.** It is already too large. New routes go in a dedicated route file, which `index.js` then mounts.
-- **Never add a new utility function to `utils.js` without first checking whether it belongs in a more specific module.**
-- **Never import from files in `misc/`.** That code is dead and will be removed. (`index.js` and `routes.js` still import `PORT` and `VALID_TASK_STATUSES` from `misc/constants.js`. Leave those imports as they are, but don't add new ones.)
+- **Keep the layers separate.** Routes read the request, call a service and send the response. Services hold validation and business rules and call query functions. Only files in `src/db/queries/` run SQL. Routes never import from `src/db/`, and services never import `src/db/connection.js`.
+- **One file per resource in each layer**, with the same name: `src/routes/tasks.js`, `src/services/tasks.js`, `src/db/queries/tasks.js`. A service may call other resources' query functions (for example, the tasks service checks that a project exists).
+- **Every file name is lowercase kebab-case** (`task-tags.js`, `error-handler.js`). Don't add camelCase, PascalCase or one-off names.
+- **Client errors are `HttpError`s.** Services `throw new HttpError(status, message)` from `src/utils/http-error.js`. Routes pass every error to `next(err)`, and `errorHandler` sends `{ error: message }`. Don't build error responses by hand.
+- **Put helpers where they belong.** Validators go in `src/utils/validation.js`, shared constants in `src/utils/constants.js`, and environment config in `src/config.js`. Don't add a general-purpose utils file.
+- **The schema exists once**, in `src/db/schema.js`. The seed script and the tests both call `createSchema(db)`.
 
 ## Commands
 
@@ -42,31 +35,46 @@ npx jest tests/tasks.test.js            # single file
 npx jest -t "filters by ?status=active" # single test by name
 ```
 
-There is no linter or build step.
-
-**Test file discovery:** Jest only runs files that match the `testMatch` list in `package.json`: `tests/*.test.js`, `tests/userTest.js` and `tests/test-projects.js`. A new test file that matches none of those patterns won't run. Name new test files `<resource>.test.js`, for example `tasks.test.js` or `comments.test.js`. The inconsistent names in `tests/` (`userTest.js`, `test-projects.js`) are a known problem and will be standardized later. Don't copy them, and don't rename them unless the task asks for it.
+There is no linter or build step. Jest only runs files that match `tests/*.test.js`, so name test files `<resource>.test.js`.
 
 ## Architecture
 
-- `index.js` builds the Express app, mounts `routes.js`, and only calls `listen` when run directly (`require.main === module`). Tests import the app from here. A few routes (`/` and `POST /webhooks/task-update`) are defined in `index.js` instead of `routes.js`.
-- `routes.js` is one big router for every resource: users, projects, tasks, comments, tags and task tags. Most handlers run SQL inline through `db.prepare(...)`, with validation inline too. The exceptions are:
-  - Users go through `UserController.js`. It throws errors with an `err.status` property, and the routes map that to the HTTP status. `createUser` also calls the stub `sendEmail.js`.
-  - Task list and detail reads go through `get-tasks.js`. `getTaskById` adds `tags` and `comments` to the task.
-  - Project stats come from `projectHelpers.js`. `routes.js` requires it lazily inside the handler, because `projectHelpers.formatProjectSummary` requires `routes.js` back (a known circular dependency, through `getTasksForProject`, which `routes.js` exports).
-- `DB.js` exports a single shared `db` connection with WAL mode and `foreign_keys = ON`. It picks the database file from `NODE_ENV`: `test` gives `:memory:`, otherwise it uses `DB_PATH` or `taskr.db`.
-- `auth.js` checks the `x-api-key` header against `API_KEY` (default `dev-key`). Only `DELETE /users/:id` and `DELETE /projects/:id` require it.
-- `middleware.js` provides `requestLogger` and the global `errorHandler`, which `index.js` mounts last. The handler responds with `err.status || 500` and `{ error: err.message }`, the same error shape the routes produce by hand.
-- `utils.js` holds the shared validators (`validateEmail`, `isNonEmptyString`) that `routes.js` and `UserController.js` use. Its other helpers (`parseIntSafe`, `buildPaginationMeta`, `slugify`, etc.) aren't currently used.
-- `misc/constants.js` holds `PORT`, `DEFAULT_PAGE_SIZE`/`MAX_PAGE_SIZE` and `VALID_TASK_STATUSES` (`active | completed | archived`, which is also a CHECK constraint in the schema). Its `paginate()` and `formatError()` helpers, and the page-size constants, aren't used anywhere: `getTasks` in `get-tasks.js` hardcodes `limit = 20, offset = 0`. `misc/oldRoutes.js` and `misc/temp.js` are dead code that nothing imports.
-- `PUT /tasks/:id` sets `completed_at` when a task's status changes to `completed` and clears it when the status changes to anything else.
+```
+src/
+  app.js          builds the app and mounts every router (tests import this)
+  server.js       entry point: app.listen(PORT)
+  config.js       PORT, API_KEY (defaults 3000 and dev-key)
+  routes/         one named Express router per resource
+  services/       validation and business rules; email.js is a stub that only logs
+  db/
+    connection.js the shared db connection (WAL, foreign_keys = ON)
+    schema.js     createSchema(db)
+    seed.js       sample data for npm run db:seed
+    queries/      SQL only, one file per table/resource
+  middleware/     auth.js, request-logger.js, error-handler.js
+  utils/          validation.js, constants.js, http-error.js
+tests/            <resource>.test.js, one per resource
+```
 
-## Schema is duplicated
+- **Routing:** `src/app.js` mounts `/`, `/webhooks`, `/users`, `/projects`, `/tasks` and `/tags`. Comments and task tags are nested routers mounted at `/tasks/:id/comments` and `/tasks/:id/tags`, using `Router({ mergeParams: true })` to read the task id. They're mounted before `/tasks`.
+- **Database:** `connection.js` picks the file from `NODE_ENV`: `test` gives `:memory:`, otherwise it uses `DB_PATH` or `taskr.db`.
+- **Auth:** `middleware/auth.js` checks the `x-api-key` header against `API_KEY`. Only `DELETE /users/:id` and `DELETE /projects/:id` use it.
+- **Errors:** `errorHandler` responds with `err.status || 500` and `{ error: err.message }`, and logs only 5xx errors.
+- **Task rules:** valid statuses are `active | completed | archived` (`VALID_TASK_STATUSES`, also a CHECK constraint in the schema). `PUT /tasks/:id` sets `completed_at` when a task becomes `completed` and clears it when it moves to any other status. `GET /tasks` pages with `page`/`page_size` (default 20, max 100).
+- **Duplicates:** duplicate user emails and tag names are detected by catching SQLite UNIQUE errors in the service and turning them into 409s.
 
-The DDL lives in two places: `db/seed.js` (for the real database) and `tests/schema.js` (for the in-memory test database). If you change the schema, update both.
+## Known bugs
 
-## Test conventions
+These were kept on purpose during the refactor, which didn't change behavior. Fix them only when a task asks, and add a test with each fix.
 
-Each test file sets `process.env.NODE_ENV = 'test'` **before** it requires `../index`, so that `DB.js` opens `:memory:`. It then calls `createSchema(db)` in `beforeAll` and runs `DELETE FROM` on every table in `beforeEach`, removing child tables first (`task_tags`, `comments`, `tasks`, `projects`, `users`, `tags`) so the foreign keys aren't violated. Follow the same pattern in new test files.
+- Deleting a task with comments or tags, a user with tasks, or a project with tasks returns a raw `FOREIGN KEY constraint failed` 500. The schema has no `ON DELETE` rules.
+- `POST /projects` with an `owner_id` that doesn't exist returns the same foreign-key 500.
+- `PUT /users/:id` returns 500 instead of 409 for a duplicate email, and doesn't validate the email format.
+- A `POST` or `PUT` with no JSON body returns a 500 with a JavaScript `TypeError` message instead of a 400.
+
+## Tests
+
+Tests are in `tests/`, one `<resource>.test.js` per resource. Each file sets `process.env.NODE_ENV = 'test'` **before** it requires `../src/app`, calls `createSchema(db)` in `beforeAll`, and clears every table in `beforeEach` (child tables first). See the testing standards file for the full setup.
 
 ## Git
 

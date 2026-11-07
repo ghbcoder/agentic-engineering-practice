@@ -1,69 +1,90 @@
 # API conventions: adding a new endpoint
 
-How to add a new endpoint to the Taskr API. These conventions describe the layout **after the refactor**: route files live in `src/routes/`, business logic lives in `src/services/`, and the app is built in `src/index.js`.
+How to add a new endpoint to the Taskr API. Each resource has three layers, each in its own file with the same name:
 
-## 1. Put the routes in a dedicated route file
+| Layer | File | Holds |
+|---|---|---|
+| Route | `src/routes/<resources>.js` | Reads the request, calls the service, sends the response |
+| Service | `src/services/<resources>.js` | Validation and business rules |
+| Queries | `src/db/queries/<resources>.js` | SQL only |
 
-- Each resource gets its own file in `src/routes/`. Don't add routes to the old top-level `routes.js`.
-- Name the file after the resource, in lowercase plural: `src/routes/tasks.js`, `src/routes/comments.js`, `src/routes/tags.js`.
-- The file exports a **named** Express router, not a default export.
+Name the files after the resource, in lowercase plural kebab-case: `tasks.js`, `comments.js`, `task-tags.js`. If the resource already exists, add to its existing files.
+
+## 1. Write the SQL in the queries file
+
+Query functions run one statement each and return plain rows, ids or change counts. No validation and no HTTP errors.
+
+```js
+// src/db/queries/comments.js
+const { db } = require('../connection');
+
+function findCommentById(id) {
+  return db.prepare('SELECT * FROM comments WHERE id = ?').get(id);
+}
+
+module.exports = { findCommentById };
+```
+
+## 2. Put the rules in the service
+
+The service validates input, enforces business rules, and calls query functions. It may call other resources' query functions, such as `findTaskById`. For a client error, throw an `HttpError`:
+
+```js
+// src/services/comments.js
+const commentsQueries = require('../db/queries/comments');
+const { HttpError } = require('../utils/http-error');
+
+function updateComment(id, { body }) {
+  if (!commentsQueries.findCommentById(id)) throw new HttpError(404, 'Comment not found');
+  // ...
+}
+
+module.exports = { updateComment };
+```
+
+Export one function per operation (`getCommentById`, `createComment`, ...). Services never import `src/db/connection.js`.
+
+## 3. Keep route handlers thin
+
+The route file exports a **named** Express router. Each handler reads the request, calls one service function and sends the result. Pass every error to `next`. Don't build error responses with `res.status(...).json(...)`:
 
 ```js
 // src/routes/comments.js
 const express = require('express');
 const commentsService = require('../services/comments');
 
-const commentsRouter = express.Router();
+const commentsRouter = express.Router({ mergeParams: true });
 
-// handlers go here (see step 2)
-
-module.exports = { commentsRouter };
-```
-
-## 2. Keep business logic out of route handlers
-
-Each handler calls a matching function in `src/services/` and does nothing else beyond reading the request and sending the response. SQL, validation and other business rules belong in the service, not the handler.
-
-```js
-commentsRouter.get('/:id', (req, res, next) => {
+commentsRouter.get('/:commentId', (req, res, next) => {
   try {
-    const comment = commentsService.getCommentById(req.params.id);
+    const comment = commentsService.getCommentById(parseInt(req.params.commentId));
     if (!comment) return next({ status: 404, message: 'Comment not found' });
     res.json(comment);
   } catch (err) {
     next(err);
   }
 });
+
+module.exports = { commentsRouter };
 ```
 
-Give the service file the same name as the route file (`src/services/comments.js`) and export one function per operation (`getCommentById`, `createComment`, ...).
+The global `errorHandler` turns an error into an `{ error: message }` response with its `status`, or 500 if it has none. Add the `authenticate` middleware from `src/middleware/auth.js` to any endpoint that needs the API key.
 
-## 3. Pass errors to `next`
-
-Don't send error responses with `res.status(...).json(...)` in handlers. Pass errors to Express's `next` function as an object with a status code and a message:
-
-```js
-return next({ status: 400, message: 'body is required' });
-```
-
-Services that detect a client error should throw an error with the same `status` and `message` properties. The handler's `catch` passes it to `next`. The global error handler turns the error into an `{ error: message }` response with that status, or 500 if no status is set.
-
-## 4. Register the router in `src/index.js`
-
-Mount every router in `src/index.js` with `app.use`, giving the resource path and the imported router:
+## 4. Mount the router in `src/app.js`
 
 ```js
 const { commentsRouter } = require('./routes/comments');
 
-app.use('/comments', commentsRouter);
+app.use('/tasks/:id/comments', commentsRouter);
 ```
 
-Paths inside the router are relative to that mount path. In the example above, `commentsRouter.get('/:id')` serves `GET /comments/:id`.
+Paths inside the router are relative to the mount path. A router mounted under a parameter (such as `/tasks/:id/...`) needs `express.Router({ mergeParams: true })` to read `req.params.id`, and must be mounted **before** `app.use('/tasks', tasksRouter)`.
 
 ## Checklist
 
-- [ ] `src/routes/<resources>.js` exports a named router
-- [ ] Handlers only call `src/services/<resources>.js` functions
-- [ ] Errors go through `next({ status, message })`
-- [ ] Router is mounted in `src/index.js` with `app.use('/<resources>', <resources>Router)`
-- [ ] Tests are in `tests/<resource>.test.js` (see the test conventions in `CLAUDE.md`)
+- [ ] SQL only in `src/db/queries/<resources>.js`
+- [ ] Validation and rules in `src/services/<resources>.js`, with client errors thrown as `HttpError`
+- [ ] `src/routes/<resources>.js` exports a named router whose handlers only call the service and pass errors to `next`
+- [ ] Router mounted in `src/app.js`
+- [ ] All new file names are lowercase kebab-case
+- [ ] Tests in `tests/<resource>.test.js` (see testing-standards.md)
