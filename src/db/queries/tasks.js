@@ -48,4 +48,11 @@ function deleteTask(id) {
   return db.prepare('DELETE FROM tasks WHERE id = ?').run(id).changes;
 }
 
-module.exports = { findTasks, findTaskById, insertTask, updateTask, deleteTask };
+// Returns one { status, count } row for each status that has tasks in the project
+function countTasksByStatusForProject(projectId) {
+  return db.prepare(
+    'SELECT status, COUNT(*) as count FROM tasks WHERE project_id = ? GROUP BY status'
+  ).all(projectId);
+}
+
+module.exports = { findTasks, findTaskById, insertTask, updateTask, deleteTask, countTasksByStatusForProject };
